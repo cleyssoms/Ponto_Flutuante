@@ -97,7 +97,34 @@ always_ff @(posedge clk or negedge rst_n) begin
                 exp_res = max_exp - leading_zeros;
             end
         end
+
+        // Verificar condições especiais
+        logic overflow = (exp_res >= 255);  // Expoente excede limite
+        logic underflow = (exp_res == 0) && (mantissa_res != 0); // Expoente zero com valor não nulo
         
+        // Montar resultado final com tratamento de casos especiais
+        if (overflow) begin
+            // Overflow: retornar infinito
+            data_out <= {sign_res, 8'hFF, 23'h0};
+        end else if (underflow) begin
+            // Underflow: retornar zero
+            data_out <= 0;
+        end else begin
+            // Caso normal: formatar IEEE 754
+            data_out <= {sign_res, exp_res, mantissa_res[22:0]};
+        end
+
+        // INEXACT: houve perda de precisão (sticky) ou casos especiais
+        logic inexact = sticky | overflow | underflow;
+        
+        // EXACT: resultado preciso sem perdas ou casos especiais
+        logic exact = !inexact;
+        
+        // Montar vetor de status one-hot
+        status_out[INEXACT]  = inexact;
+        status_out[UNDERFLOW] = underflow;
+        status_out[OVERFLOW]  = overflow;
+        status_out[EXACT]    = exact;
     end
 end
 endmodule
