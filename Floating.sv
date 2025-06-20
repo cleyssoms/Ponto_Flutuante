@@ -14,15 +14,29 @@ localparam OVERFLOW  = 2;
 localparam EXACT    = 3;
 
 always_ff @(posedge clk or negedge rst_n) begin
+    // Declaração de todas as variáveis locais no início do bloco
+    logic signA, signB;
+    logic [7:0] expA, expB;
+    logic [22:0] fracA, fracB;
+    logic [23:0] mantissaA, mantissaB;
+    logic [7:0] max_exp;
+    logic [7:0] exp_diff;
+    logic [23:0] aligned_A, aligned_B;
+    logic sticky;
+    logic [24:0] sum;
+    logic sign_res;
+    logic [23:0] mantissa_res;
+    logic [7:0] exp_res;
+    logic [4:0] leading_zeros;
+    logic overflow, underflow;
+    logic inexact, exact;
+
     if (!rst_n) begin
         // Reset: saídas zeradas
         data_out <= 0;
         status_out <= 0;
     end else begin
         // Extrair sinal, expoente e fração de cada operando
-        logic signA, signB;
-        logic [7:0] expA, expB;
-        logic [22:0] fracA, fracB;
         signA = Op_A_in[31];
         expA = Op_A_in[30:23];
         fracA = Op_A_in[22:0];
@@ -31,12 +45,8 @@ always_ff @(posedge clk or negedge rst_n) begin
         fracB = Op_B_in[22:0];
         
        // Determinar maior expoente e diferença entre expoentes
-        logic [7:0] max_exp = (expA >= expB) ? expA : expB;
-        logic [7:0] exp_diff = (expA >= expB) ? (expA - expB) : (expB - expA);
-        
-        // Alinhar mantissas com base na diferença de expoentes
-        logic [23:0] aligned_A, aligned_B;
-        logic sticky; // Indica perda de precisão durante deslocamento
+        max_exp = (expA >= expB) ? expA : expB;
+        exp_diff = (expA >= expB) ? (expA - expB) : (expB - expA);
         
         if (expA >= expB) begin
             aligned_A = mantissaA;
@@ -48,11 +58,6 @@ always_ff @(posedge clk or negedge rst_n) begin
             aligned_B = mantissaB;
             sticky = (exp_diff > 0) ? |(mantissaA << (24 - exp_diff)) : 1'b0;
         end
-
-        logic [24:0] sum; // Resultado com bit extra para carry
-        logic sign_res;
-        logic [23:0] mantissa_res;
-        logic [7:0] exp_res;
         
         if (signA == signB) begin
             // Adição para sinais iguais
@@ -79,7 +84,6 @@ always_ff @(posedge clk or negedge rst_n) begin
             end
             
             // Normalização: encontrar primeiro '1' significativo
-            logic [4:0] leading_zeros = 0;
             for (int i = 23; i >= 0; i--) begin
                 if (sum[i]) begin
                     leading_zeros = 23 - i; // Calcula zeros à esquerda
@@ -99,8 +103,8 @@ always_ff @(posedge clk or negedge rst_n) begin
         end
 
         // Verificar condições especiais
-        logic overflow = (exp_res >= 255);  // Expoente excede limite
-        logic underflow = (exp_res == 0) && (mantissa_res != 0); // Expoente zero com valor não nulo
+        overflow = (exp_res >= 255);  // Expoente excede limite
+        underflow = (exp_res == 0) && (mantissa_res != 0); // Expoente zero com valor não nulo
         
         // Montar resultado final com tratamento de casos especiais
         if (overflow) begin
@@ -115,10 +119,10 @@ always_ff @(posedge clk or negedge rst_n) begin
         end
 
         // INEXACT: houve perda de precisão (sticky) ou casos especiais
-        logic inexact = sticky | overflow | underflow;
+        inexact = sticky | overflow | underflow;
         
         // EXACT: resultado preciso sem perdas ou casos especiais
-        logic exact = !inexact;
+        exact = !inexact;
         
         // Montar vetor de status one-hot
         status_out[INEXACT]  = inexact;
