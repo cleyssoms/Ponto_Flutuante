@@ -48,6 +48,56 @@ always_ff @(posedge clk or negedge rst_n) begin
             aligned_B = mantissaB;
             sticky = (exp_diff > 0) ? |(mantissaA << (24 - exp_diff)) : 1'b0;
         end
+
+        logic [24:0] sum; // Resultado com bit extra para carry
+        logic sign_res;
+        logic [23:0] mantissa_res;
+        logic [7:0] exp_res;
+        
+        if (signA == signB) begin
+            // Adição para sinais iguais
+            sum = {1'b0, aligned_A} + {1'b0, aligned_B};
+            sign_res = signA;
+            
+            // Tratar carry (resultado maior que 24 bits)
+            if (sum[24]) begin
+                mantissa_res = sum[24:1]; // Desloca resultado
+                exp_res = max_exp + 1;    // Ajusta expoente
+                sticky |= sum[0];         // Atualiza sticky com bit perdido
+            end else begin
+                mantissa_res = sum[23:0];
+                exp_res = max_exp;
+            end
+        end else begin
+            // Subtração para sinais diferentes
+            if (aligned_A >= aligned_B) begin
+                sum = {1'b0, aligned_A} - {1'b0, aligned_B};
+                sign_res = signA;
+            end else begin
+                sum = {1'b0, aligned_B} - {1'b0, aligned_A};
+                sign_res = signB;
+            end
+            
+            // Normalização: encontrar primeiro '1' significativo
+            logic [4:0] leading_zeros = 0;
+            for (int i = 23; i >= 0; i--) begin
+                if (sum[i]) begin
+                    leading_zeros = 23 - i; // Calcula zeros à esquerda
+                    break;
+                end
+            end
+            
+            // Ajustar mantissa e expoente
+            if (sum == 0) begin
+                // Resultado zero
+                mantissa_res = 0;
+                exp_res = 0;
+            end else begin
+                mantissa_res = sum[23:0] << leading_zeros;
+                exp_res = max_exp - leading_zeros;
+            end
+        end
+        
     end
 end
 endmodule
