@@ -150,7 +150,7 @@ initial begin
     print_result(1e10, 1.0, "add");
     
     $display("================ FIM DOS TESTES ================");
-    $finish;
+    $stop;
 end
 
 endmodule
