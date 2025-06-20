@@ -30,10 +30,24 @@ always_ff @(posedge clk or negedge rst_n) begin
         expB = Op_B_in[30:23];
         fracB = Op_B_in[22:0];
         
-        // Tratar números desnormalizados (expoente zero) como zero
-        // Adicionar bit implícito para números normalizados
-        logic [23:0] mantissaA = (expA == 0) ? 24'b0 : {1'b1, fracA};
-        logic [23:0] mantissaB = (expB == 0) ? 24'b0 : {1'b1, fracB};
+       // Determinar maior expoente e diferença entre expoentes
+        logic [7:0] max_exp = (expA >= expB) ? expA : expB;
+        logic [7:0] exp_diff = (expA >= expB) ? (expA - expB) : (expB - expA);
+        
+        // Alinhar mantissas com base na diferença de expoentes
+        logic [23:0] aligned_A, aligned_B;
+        logic sticky; // Indica perda de precisão durante deslocamento
+        
+        if (expA >= expB) begin
+            aligned_A = mantissaA;
+            // Deslocar mantissa menor e calcular sticky bit
+            aligned_B = mantissaB >> exp_diff;
+            sticky = (exp_diff > 0) ? |(mantissaB << (24 - exp_diff)) : 1'b0;
+        end else begin
+            aligned_A = mantissaA >> exp_diff;
+            aligned_B = mantissaB;
+            sticky = (exp_diff > 0) ? |(mantissaA << (24 - exp_diff)) : 1'b0;
+        end
     end
 end
 endmodule
