@@ -92,4 +92,47 @@ Para executar a simulação inicie o Questa ou ModelSim e entre na pasta 'sim', 
   `+3.40282347 × 10^(38)`
   Representação: `0 11111110 111...1`
 
-(Falta imagem do espectro de representação, será adiconado em breve)
+![image](https://github.com/user-attachments/assets/03cadae5-ab93-47ff-95dc-9d7a225a61a5)
+
+* **Código em python usado pra gerar a imagem:**
+```pyhton
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Definição das constantes IEEE 754 single-precision
+MIN_DENORM = np.float32(1.401298464e-45)      # Menor denormalizado positivo
+MIN_NORM = np.float32(1.17549435e-38)         # Menor normalizado positivo
+MAX_FLOAT = np.float32(3.4028235e+38)         # Maior normalizado positivo
+
+# Função para amostrar valores representáveis via ULPs
+def sample_ulps(start, count=100):
+    vals = []
+    x = np.float32(start)
+    for _ in range(count):
+        vals.append(x)
+        x = np.nextafter(x, MAX_FLOAT, dtype=np.float32)
+    return np.array(vals, dtype=np.float32)
+
+# Amostras em diferentes regiões
+samples = {
+    "Denorm to Norm boundary": sample_ulps(MIN_DENORM, 100),
+    "Start of Normalized": sample_ulps(MIN_NORM, 100),
+    "Around 1.0": sample_ulps(np.float32(1.0), 100),
+    "Around 1e10": sample_ulps(np.float32(1e10), 100),
+    "Near Max": sample_ulps(MAX_FLOAT / np.float32(2), 100),
+}
+
+# Plotagem sem legenda
+plt.figure(figsize=(10, 4))
+for vals in samples.values():
+    plt.scatter(vals, np.zeros_like(vals), s=10)
+
+plt.xscale('log')
+plt.yticks([])
+plt.xlabel('Value (escala logarítmica)')
+plt.title('Espectro de Valores Representáveis em IEEE 754 Single')
+plt.tight_layout()
+plt.show()
+
+```
+
